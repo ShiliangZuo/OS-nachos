@@ -182,19 +182,28 @@ public class KThread {
      * delete this thread.
      */
     public static void finish() {
-	Lib.debug(dbgThread, "Finishing thread: " + currentThread.toString());
-	
-	Machine.interrupt().disable();
+		Lib.debug(dbgThread, "Finishing thread: " + currentThread.toString());
 
-	Machine.autoGrader().finishingCurrentThread();
+		ThreadQueue curJoinQueue = currentThread.joinQueue;
+		if (curJoinQueue != null) {
+			KThread thread = curJoinQueue.nextThread();
+			while (thread != null) {
+				thread.ready();
+				thread = curJoinQueue.nextThread();
+			}
+		}
 
-	Lib.assertTrue(toBeDestroyed == null);
-	toBeDestroyed = currentThread;
+		Machine.interrupt().disable();
+
+		Machine.autoGrader().finishingCurrentThread();
+
+		Lib.assertTrue(toBeDestroyed == null);
+		toBeDestroyed = currentThread;
 
 
-	currentThread.status = statusFinished;
-	
-	sleep();
+		currentThread.status = statusFinished;
+
+		sleep();
     }
 
     /**
@@ -272,11 +281,28 @@ public class KThread {
      * call is not guaranteed to return. This thread must not be the current
      * thread.
      */
+    //Modified Join Method
+	//t.join waits for t to finish, while waiting this thread sleeps
     public void join() {
-	Lib.debug(dbgThread, "Joining to thread: " + toString());
+		Lib.debug(dbgThread, "Joining to thread: " + toString());
 
-	Lib.assertTrue(this != currentThread);
+		Lib.assertTrue(this != currentThread);
 
+		boolean interruptStatus = Machine.interrupt().disable();
+
+		if (this.status == statusFinished) {
+			Machine.interrupt().restore(interruptStatus);
+			return;
+		}
+
+		if (joinQueue == null) {
+			joinQueue = ThreadedKernel.scheduler.newThreadQueue(true);
+			joinQueue.acquire(this);
+		}
+		joinQueue.waitForAccess(currentThread);
+		currentThread.sleep();
+
+		Machine.interrupt().restore(interruptStatus);
     }
 
     /**
@@ -444,4 +470,6 @@ public class KThread {
     private static KThread currentThread = null;
     private static KThread toBeDestroyed = null;
     private static KThread idleThread = null;
+
+    private ThreadQueue joinQueue = null;
 }
