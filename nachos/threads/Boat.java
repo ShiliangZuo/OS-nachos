@@ -14,7 +14,7 @@ public class Boat
     static int boatLocation = origin;
     static int passengerCount = 0;
 
-    static Lock boatLock;
+    static Lock boatLock = new Lock();
     static Condition2 waitingAtOrigin = new Condition2(boatLock);
     static Condition2 waitingAtDestination = new Condition2(boatLock);
     static Condition2 waitingForBoatFull = new Condition2(boatLock);
